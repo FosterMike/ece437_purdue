@@ -11,6 +11,8 @@
 module datapath (
     input logic CLK, nRST,
     datapath_cache_if dpif // Main interface instance for the pipeline
+
+
 );
     import cpu_types_pkg::*;
 
