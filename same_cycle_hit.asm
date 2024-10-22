@@ -1,23 +1,16 @@
-.section .text
-.global _start
-_start:
-    # Load data into D-Cache
-    la t0, data1
-    lw t1, 0(t0)        # Load from data1 (Cache miss -> Cache fill)
+# org 0x0000
+#     sw 0(t0), 0x100
+#     lw t1, 0(t0) // load data into dcache
 
-    loop:
-    # Instruction fetches happen, I-Cache is hit as the loop repeats
-    addi t1, t1, 1      # Modify register, this will be an I-Cache hit on the 2nd+ iterations
+#     loop:
+#     lw t2, 0(t0) // d-cache hit
+#     addi t1, t1, 1 // i-cache hit since we'll repeat this instruction
+#     addi t1, t1, 1 // i-cache hit since we'll repeat this instruction
+#     addi t1, t1, 1 // i-cache hit since we'll repeat this instruction
+#     addi t1, t1, 1 // i-cache hit since we'll repeat this instruction
 
-    # D-Cache hit (data1 already cached)
-    lw t2, 0(t0)        # Load from data1 again (D-Cache hit)
+#     bnez t1, loop
 
-    # Continue looping
-    bnez t1, loop       # If t1 is non-zero, continue looping
+    halt
 
-    # End program
-    li a7, 93           # Syscall to exit
-    ecall
 
-.section .data
-    data1: .word 0x1234  # Some sample data
