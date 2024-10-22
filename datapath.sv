@@ -51,7 +51,7 @@ module datapath (
     register_file RF (CLK, nRST, rfif);
     ALU arithmetic (aluif);
     hazard_unit HU (hzif);
-    forwarding_unit FU (fwif);
+    forwarding_unit FU (CLK, nRST, fwif);
 
     logic branch_taken;
     logic jump_taken;
@@ -76,7 +76,8 @@ module datapath (
     assign fwif.mem_wb_regwrite = plif.mem_wb_regwrite;
     assign fwif.ex_mem_aluout = plif.ex_mem_aluout;
     assign fwif.mem_wb_wdata = (plif.mem_wb_memtoreg) ? plif.mem_wb_dmemload : plif.mem_wb_aluout;
-
+    assign fwif.mem_wb_memtoreg = plif.mem_wb_memtoreg;
+    assign fwif.ex_mem_memtoreg = plif.ex_mem_memtoreg;
     // IF Stage: Instruction Fetch
     always_ff @(posedge CLK, negedge nRST) begin
         if (!nRST) begin
@@ -214,8 +215,7 @@ module datapath (
             plif.ex_mem_pctoreg <= plif.id_ex_pctoreg;
             plif.ex_mem_halt <= plif.id_ex_halt;
             plif.ex_mem_branch_t <= plif.id_ex_branch_t;
-        end
-        
+        end  
     end
 
     always_comb begin
@@ -223,14 +223,14 @@ module datapath (
             // Forwarding logic
             aluif.op = plif.id_ex_aluop;
             case (fwif.forwardA)
-                2'b00: aluif.a = plif.id_ex_rdata1; // No forwarding
+                2'b00: aluif.a = (fwif.storedA == 0) ? plif.id_ex_rdata1 : fwif.storedA; // No forwarding
                 2'b10: aluif.a = plif.ex_mem_aluout; // Forward from EX/MEM stage
                 2'b01: aluif.a = fwif.mem_wb_wdata; // Forward from MEM/WB stage
                 default: aluif.a = plif.id_ex_rdata1;
             endcase
 
             case (fwif.forwardB)
-                2'b00: aluif.b = (plif.id_ex_alusrc) ? plif.id_ex_imm : plif.id_ex_rdata2; // No forwarding
+                2'b00: aluif.b = (fwif.storedB != 0) ? fwif.storedB : (plif.id_ex_alusrc) ? plif.id_ex_imm : plif.id_ex_rdata2; // No forwarding
                 2'b10: aluif.b = (plif.id_ex_alusrc) ? plif.id_ex_imm : plif.ex_mem_aluout; // Forward from EX/MEM stage
                 2'b01: aluif.b = (plif.id_ex_alusrc) ? plif.id_ex_imm : fwif.mem_wb_wdata; // Forward from MEM/WB stage
                 default: aluif.b = (plif.id_ex_alusrc) ? plif.id_ex_imm : plif.id_ex_rdata2;
@@ -250,8 +250,7 @@ module datapath (
             plif.mem_wb_imm <= '0;
             plif.mem_wb_jump_t <= '0;
             plif.mem_wb_rdata2 <= 0;
-        end else begin
-            if(dpif.ihit || dpif.dhit || branch_taken || jump_taken) begin
+        end else if(dpif.ihit || dpif.dhit || branch_taken || jump_taken) begin
             plif.mem_wb_jump_t <= plif.ex_mem_jump_t;
             plif.mem_wb_imm <= plif.ex_mem_imm;
             plif.mem_wb_instr <= plif.ex_mem_instr;
@@ -263,7 +262,6 @@ module datapath (
             plif.mem_wb_regwrite <= plif.ex_mem_regwrite;
             plif.mem_wb_pctoreg <= plif.ex_mem_pctoreg;
             plif.mem_wb_rdata2 <= plif.ex_mem_rdata2;
-            end
         end
     end
 
